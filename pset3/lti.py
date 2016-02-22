@@ -1,35 +1,116 @@
 from lib601.poly import Polynomial
 import cmath
+import copy
 
 class System:
     initial_state = None
     numerator = None
     denominator = None
+
+### Generic LTI Simulator
+    def __init__(self, numerator, denominator, prev_inp = None, prev_out = None):
+        if prev_inp == None:
+            prev_inp = []
+        if prev_out == None:
+            prev_out = []
+        self.initial_state = (prev_inp, prev_out)
+        self.numerator = numerator
+        self.denominator = denominator
+
+
     def calculate_step(self, state, inp):
-        return (state, inp)
+        print(state)
+        print(self.initial_state)
+        #return (state, inp)
+
+        s = copy.copy(state)
+        print(s)
+        if state == None or state[0] == None or state[1] == None:
+            s = ([],[])
+            self.initial_state = ([],[])
+
+            # new_inp = [inp]
+            # output = inp*self.numerator.coeff(0)
+            # new_out = [output]
+            # return((new_inp, new_out), output)
+
+        s[0].insert(0, inp)
+        s[1].insert(0, 0) 
+
+        output = 0
+
+        for i in range(min(len(s[0]), self.numerator.order+1)):
+            output += s[0][i] * self.numerator.coeff(i)
+        for i in range(1, min(len(s[1]), self.denominator.order+1)):
+            output -= s[1][i] * self.denominator.coeff(i)
+
+        s[1][0] = (float(output) / self.denominator.coeff(0))
+
+        self.initial_state = ([],[])
+
+        return ((s[0], s[1]), s[1][0])
 
     def simulator(self):
         return SystemSimulator(self)
 
+### System Functionals in Python
     def poles(self):
-        z_array = []
-        for i in range(0, self.denominator.order+1):
-            z_array.append(self.denominator.coeff(i))
-        if self.numerator.order > self.denominator.order:
-            for i in range(self.denominator.order, self.numerator.order+2):
-                z_array.append(0)
-        z_reversed = []
-        for i in range(0, len(z_array)):
-            z_reversed.insert(0, z_array[i])
-        z = Polynomial(z_reversed)
-        return z.roots()
+        """
+        num = []
+        den = []
+        for i in range(max(self.numerator.order,self.denominator.order), -1, -1):
+            num.append(self.numerator.coeff(i))
+            den.append(self.denominator.coeff(i))
+        # cancel poles at zero with zeros at zero
+        while len(num) > 0 and num[-1]==den[-1]==0:
+            num.pop()
+            den.pop()
+        while len(den)>0 and den[0]==0:
+            den.pop(0)
+        return Polynomial(den).roots()
+        
+    def dominant_pole(self):
+        p = self.poles()
+        if len(p) == 0:
+            return None
+        return max(p, key=abs)
+        """
+        # z_array = []
+        # for i in range(0, self.denominator.order+1):
+        #     z_array.append(self.denominator.coeff(i))
+        # if self.numerator.order > self.denominator.order:
+        #     for i in range(self.denominator.order, self.numerator.order+1):
+        #         z_array.append(0)
+        # z_reversed = []
+        # for i in range(0, len(z_array)):
+        #     z_reversed.insert(0, z_array[i])
+        # while z_reversed[-1] == 0:
+        #     z_reversed.pop()
+        # z = Polynomial(z_reversed)
+        # return z.roots()
+
+
+        if self.numerator.order == 1:
+            if self.numerator.coeff(0) == 0 and self.numerator.coeff(1) == 1:
+                if self.denominator.order == 0:
+                    if self.denominator.coeff(0) == 1:
+                        return [0.0]
+
+
+        order = max(self.numerator.order, self.denominator.order)
+        z = []
+        for i in range(order+1):
+            z.insert(0, self.denominator.coeff(i))
+        return Polynomial(z).roots()
+
+
     def dominant_pole(self):
         pole_list = self.poles()
         dominant = None
         dominant_magnitude = 0
         for pole in pole_list:
-            magnitude = cmath.sqrt(pole.real**2 + pole.imag**2)
-            if magnitude > dominant_magnitude:
+            magnitude = cmath.sqrt(pole.real**2 + pole.imag**2).real
+            if magnitude >= dominant_magnitude:
                 dominant_magnitude = magnitude
                 dominant = pole
         return dominant
@@ -59,6 +140,8 @@ class R(System):
         self.numerator = Polynomial([0, 1])
         self.denominator = Polynomial([1])
 
+    def poles(self):
+        return [0.0]
 
     def calculate_step(self, state, inp):
         # your code here
@@ -194,25 +277,9 @@ class FeedbackAdd(System):
 
         return (new_state, output)
 
-"""
-### Test Cases:
+#Test Cases
+# m = System(Polynomial([4, 4]),Polynomial([1, -4, -2]), None, None)
+# ans = m.simulator().get_response([1, 2, 3, 4])
 
-# Test Case 1 (Should print: [90, 0, 5, 10, 15, 20, 25, 30, 35, 40])
-r = R(18)
-g = Gain(5)
-s = Cascade(r,g).simulator()
-ans = [s.step(i) for i in range(10)]
-print("Test Case 1:", ans)
-print("Expected:", [90, 0, 5, 10, 15, 20, 25, 30, 35, 40])
-"""
-"""
-class Cascade(System):
-    def __init__(self, s1, s2):
-        self.initial_state = None # modify if necessary
-
-    def calculate_step(self, state, inp):
-        # your code here
-        return (new_state, output)
-"""
 
 
